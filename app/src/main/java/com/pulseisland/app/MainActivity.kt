@@ -36,25 +36,25 @@ class MainActivity : ComponentActivity() {
                     isIslandRunning = isIslandRunning,
                     islandConfig = islandConfig,
                     onOpenPermissionSettings = {
-                        PermissionUtils.openOverlaySettings(this)
+                        PermissionUtils.openOverlaySettings(this@MainActivity)
                     },
                     onStartIsland = {
-                        IslandOverlayService.startService(this)
+                        IslandOverlayService.startService(this@MainActivity)
                     },
                     onStopIsland = {
-                        IslandOverlayService.stopService(this)
+                        IslandOverlayService.stopService(this@MainActivity)
                     },
                     onUpdateXOffset = { newX ->
-                        IslandPreferences.setXOffsetDp(this, newX)
+                        IslandPreferences.setXOffsetDp(this@MainActivity, newX)
                     },
                     onUpdateYOffset = { newY ->
-                        IslandPreferences.setYOffsetDp(this, newY)
+                        IslandPreferences.setYOffsetDp(this@MainActivity, newY)
                     },
                     onUpdateScale = { newScale ->
-                        IslandPreferences.setScale(this, newScale)
+                        IslandPreferences.setScale(this@MainActivity, newScale)
                     },
                     onResetDefaults = {
-                        IslandPreferences.resetToDefaults(this)
+                        IslandPreferences.resetToDefaults(this@MainActivity)
                     }
                 )
             }

@@ -104,7 +104,7 @@ class IslandOverlayManager(
         root.addView(expanded, childParams)
 
         // Support both fluid drag-repositioning (fixed until changed) and quick-tap expand/collapse
-        val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
+        val touchSlop = ViewConfiguration.get(context).scaledTouchSlop.toFloat()
         var initialX = 0
         var initialY = 0
         var initialTouchX = 0f
@@ -130,7 +130,7 @@ class IslandOverlayManager(
                 MotionEvent.ACTION_MOVE -> {
                     val deltaX = event.rawX - initialTouchX
                     val deltaY = event.rawY - initialTouchY
-                    if (!isDragging && hypot(deltaX.toDouble(), deltaY.toDouble()) > touchSlop) {
+                    if (!isDragging && hypot(deltaX, deltaY) > touchSlop) {
                         isDragging = true
                     }
                     if (isDragging) {
@@ -196,9 +196,11 @@ class IslandOverlayManager(
     private fun isPointInsideView(rawX: Float, rawY: Float, view: View): Boolean {
         val location = IntArray(2)
         view.getLocationOnScreen(location)
-        val x = location[0]
-        val y = location[1]
-        return rawX >= x && rawX <= (x + view.width) && rawY >= y && rawY <= (y + view.height)
+        val left = location[0].toFloat()
+        val top = location[1].toFloat()
+        val right = left + view.width.toFloat()
+        val bottom = top + view.height.toFloat()
+        return rawX in left..right && rawY in top..bottom
     }
 
     /**
