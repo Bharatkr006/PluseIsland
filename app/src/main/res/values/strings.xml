@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">PulseIsland</string>
+    <string name="island_service_channel_name">PulseIsland Overlay</string>
+    <string name="island_service_channel_desc">Shows active status while PulseIsland floating pill is enabled</string>
+    <string name="island_notification_title">PulseIsland is active</string>
+    <string name="island_notification_text">Tap to configure or stop the floating island</string>
+    <string name="action_stop">Stop Island</string>
+    <string name="action_start">Start Island</string>
+</resources>
