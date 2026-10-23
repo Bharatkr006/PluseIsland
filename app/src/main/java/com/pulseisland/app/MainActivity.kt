@@ -20,11 +20,13 @@ import com.pulseisland.app.util.PermissionUtils
 class MainActivity : ComponentActivity() {
 
     private var hasOverlayPermission by mutableStateOf(false)
+    private var hasNotificationListenerPermission by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         IslandPreferences.init(this)
         hasOverlayPermission = PermissionUtils.hasOverlayPermission(this)
+        hasNotificationListenerPermission = PermissionUtils.hasNotificationListenerPermission(this)
 
         setContent {
             PulseIslandTheme {
@@ -33,10 +35,14 @@ class MainActivity : ComponentActivity() {
 
                 MainScreen(
                     hasOverlayPermission = hasOverlayPermission,
+                    hasNotificationListenerPermission = hasNotificationListenerPermission,
                     isIslandRunning = isIslandRunning,
                     islandConfig = islandConfig,
                     onOpenPermissionSettings = {
                         PermissionUtils.openOverlaySettings(this@MainActivity)
+                    },
+                    onOpenNotificationListenerSettings = {
+                        PermissionUtils.openNotificationListenerSettings(this@MainActivity)
                     },
                     onStartIsland = {
                         IslandOverlayService.startService(this@MainActivity)
@@ -65,6 +71,7 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         // Refresh permission status when returning from Android System Settings
         hasOverlayPermission = PermissionUtils.hasOverlayPermission(this)
+        hasNotificationListenerPermission = PermissionUtils.hasNotificationListenerPermission(this)
 
         // If permission was revoked while the island was active, dismiss the overlay cleanly
         if (!hasOverlayPermission && IslandOverlayService.isRunning.value) {

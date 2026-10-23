@@ -68,4 +68,43 @@ object PermissionUtils {
             true
         }
     }
+
+    /**
+     * Checks whether the user has enabled PulseIsland as a Notification Listener.
+     * This is required to access MediaSessionManager for music controls.
+     */
+    fun hasNotificationListenerPermission(context: Context): Boolean {
+        return try {
+            val enabledListeners = Settings.Secure.getString(
+                context.contentResolver,
+                "enabled_notification_listeners"
+            ) ?: return false
+            enabledListeners.contains(context.packageName)
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    /**
+     * Opens Android System Settings for Notification Listener / Device & app notifications.
+     */
+    fun openNotificationListenerSettings(activity: Activity) {
+        try {
+            val intent = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            }
+            activity.startActivity(intent)
+        } catch (e: Exception) {
+            try {
+                val appDetailsIntent = Intent(
+                    Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                    Uri.parse("package:${activity.packageName}")
+                ).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                }
+                activity.startActivity(appDetailsIntent)
+            } catch (_: Exception) {}
+        }
+    }
 }
+

@@ -39,6 +39,22 @@
                 android:value="Floating Dynamic Island overlay for quick status display" />
         </service>
 
+        <!--
+            NotificationListenerService stub required for MediaSessionManager API access.
+            This service does NOT read or process any notification content.
+            It is only used as an authentication credential by MediaSessionManager.getActiveSessions().
+            The user must grant "Notification access" via Android Settings.
+        -->
+        <service
+            android:name=".music.PulseIslandNotificationListener"
+            android:exported="true"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
+            android:label="@string/notification_listener_label">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
     </application>
 
 </manifest>

@@ -6,4 +6,6 @@
     <string name="island_notification_text">Tap to configure or stop the floating island</string>
     <string name="action_stop">Stop Island</string>
     <string name="action_start">Start Island</string>
+    <!-- Notification listener service label shown in Android Settings → Notification access -->
+    <string name="notification_listener_label">PulseIsland Music Integration</string>
 </resources>

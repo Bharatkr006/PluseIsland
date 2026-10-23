@@ -63,6 +63,7 @@ import com.pulseisland.app.ui.theme.DarkSurfaceVariant
 import com.pulseisland.app.ui.theme.ElectricCyan
 import com.pulseisland.app.ui.theme.EmeraldGreen
 import com.pulseisland.app.ui.theme.ErrorRed
+import com.pulseisland.app.ui.theme.NeonPurple
 import com.pulseisland.app.ui.theme.TextMuted
 import com.pulseisland.app.ui.theme.TextPrimary
 import com.pulseisland.app.ui.theme.TextSecondary
@@ -72,9 +73,11 @@ import kotlinx.coroutines.launch
 @Composable
 fun MainScreen(
     hasOverlayPermission: Boolean,
+    hasNotificationListenerPermission: Boolean,
     isIslandRunning: Boolean,
     islandConfig: IslandPreferences.IslandConfig,
     onOpenPermissionSettings: () -> Unit,
+    onOpenNotificationListenerSettings: () -> Unit,
     onStartIsland: () -> Unit,
     onStopIsland: () -> Unit,
     onUpdateXOffset: (Int) -> Unit,
@@ -108,10 +111,16 @@ fun MainScreen(
                 scale = islandConfig.scale
             )
 
-            // Permission Card
+            // Overlay Permission Card
             PermissionStatusCard(
                 hasPermission = hasOverlayPermission,
                 onOpenSettings = onOpenPermissionSettings
+            )
+
+            // Music / Notification Listener Permission Card
+            MusicPermissionCard(
+                hasPermission = hasNotificationListenerPermission,
+                onOpenSettings = onOpenNotificationListenerSettings
             )
 
             // Control Actions Card
@@ -395,6 +404,82 @@ private fun PermissionStatusCard(
             ) {
                 Text(
                     text = if (hasPermission) "Manage System Permission" else "Grant Overlay Permission",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MusicPermissionCard(
+    hasPermission: Boolean,
+    onOpenSettings: () -> Unit
+) {
+    val statusColor by animateColorAsState(
+        targetValue = if (hasPermission) EmeraldGreen else WarningAmber,
+        label = "musicStatusColor"
+    )
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = DarkSurface),
+        border = BorderStroke(1.dp, DarkBorder)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(18.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Music Integration",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TextPrimary
+                )
+
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = statusColor.copy(alpha = 0.15f),
+                    border = BorderStroke(1.dp, statusColor.copy(alpha = 0.4f))
+                ) {
+                    Text(
+                        text = if (hasPermission) "Active" else "Optional",
+                        color = statusColor,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Text(
+                text = "Grant Notification Access so PulseIsland can detect playing media (Spotify, YouTube Music, etc.) and display Apple-style live waveforms and playback controls.",
+                fontSize = 13.sp,
+                color = TextSecondary,
+                lineHeight = 18.sp
+            )
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            OutlinedButton(
+                onClick = onOpenSettings,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, NeonPurple.copy(alpha = 0.6f)),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = NeonPurple)
+            ) {
+                Text(
+                    text = if (hasPermission) "Manage Notification Access" else "Enable Music Controls",
                     fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold
                 )

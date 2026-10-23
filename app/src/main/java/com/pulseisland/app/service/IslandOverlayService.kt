@@ -13,6 +13,7 @@ import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.pulseisland.app.MainActivity
 import com.pulseisland.app.data.IslandPreferences
+import com.pulseisland.app.music.MusicStateManager
 import com.pulseisland.app.overlay.IslandOverlayManager
 import com.pulseisland.app.util.PermissionUtils
 import kotlinx.coroutines.CoroutineScope
@@ -24,35 +25,31 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /**
- * Service managing the lifecycle of the floating Dynamic Island overlay.
+ * Foreground service managing the PulseIsland overlay and music session integration.
  *
- * Runs as a lightweight foreground service to comply with Android 8+ background execution limits,
- * with minimal battery consumption (zero background loops or CPU wake locks).
+ * Battery-efficient:
+ * - MusicStateManager is fully event-driven (no polling)
+ * - Only started when the user explicitly starts the island
+ * - Cleans up all resources on stop
  */
 class IslandOverlayService : Service() {
 
     companion object {
         const val ACTION_START = "com.pulseisland.app.action.START"
-        const val ACTION_STOP = "com.pulseisland.app.action.STOP"
+        const val ACTION_STOP  = "com.pulseisland.app.action.STOP"
 
-        private const val CHANNEL_ID = "pulse_island_overlay"
-        private const val NOTIFICATION_ID = 1001
+        private const val CHANNEL_ID       = "pulse_island_overlay"
+        private const val NOTIFICATION_ID  = 1001
 
         private val _isRunning = MutableStateFlow(false)
         val isRunning: StateFlow<Boolean> = _isRunning.asStateFlow()
 
-        @Volatile
-        private var activeInstance: IslandOverlayService? = null
+        @Volatile private var activeInstance: IslandOverlayService? = null
 
         fun startService(context: Context) {
-            val intent = Intent(context, IslandOverlayService::class.java).apply {
-                action = ACTION_START
-            }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
-            } else {
-                context.startService(intent)
-            }
+            val intent = Intent(context, IslandOverlayService::class.java).apply { action = ACTION_START }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) context.startForegroundService(intent)
+            else context.startService(intent)
         }
 
         fun stopService(context: Context) {
@@ -61,19 +58,16 @@ class IslandOverlayService : Service() {
                 instance.stopOverlay()
             } else {
                 try {
-                    val intent = Intent(context, IslandOverlayService::class.java).apply {
-                        action = ACTION_STOP
-                    }
-                    context.startService(intent)
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
+                    context.startService(Intent(context, IslandOverlayService::class.java).apply { action = ACTION_STOP })
+                } catch (_: Exception) {}
             }
         }
     }
 
     private var overlayManager: IslandOverlayManager? = null
+    private var musicManager: MusicStateManager? = null
     private var configJob: Job? = null
+    private var musicJob: Job? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -84,20 +78,14 @@ class IslandOverlayService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val action = intent?.action ?: ACTION_START
-
-        // Always satisfy Android 8+ foreground service requirement immediately
         startForegroundWithNotification()
 
-        if (action == ACTION_STOP) {
-            stopOverlay()
-            return START_NOT_STICKY
+        when (intent?.action ?: ACTION_START) {
+            ACTION_STOP -> { stopOverlay(); return START_NOT_STICKY }
         }
 
-        // Verify overlay permission before attaching window
         if (!PermissionUtils.hasOverlayPermission(this)) {
-            stopOverlay()
-            return START_NOT_STICKY
+            stopOverlay(); return START_NOT_STICKY
         }
 
         showOverlay()
@@ -109,52 +97,71 @@ class IslandOverlayService : Service() {
         overlayManager?.onConfigurationChanged()
     }
 
+    // ─── Overlay lifecycle ───────────────────────────────────────────────────────
+
     private fun showOverlay() {
         if (overlayManager == null) {
-            overlayManager = IslandOverlayManager(
-                context = this,
-                onCloseRequested = {
-                    stopOverlay()
-                }
-            )
+            val manager = IslandOverlayManager(context = this, onCloseRequested = { stopOverlay() })
+            overlayManager = manager
+
+            // Wire music control callbacks
+            manager.setMusicControlCallbacks(object : IslandOverlayManager.MusicControlCallbacks {
+                override fun onPlayPause() { musicManager?.togglePlayPause() }
+                override fun onSkipNext() { musicManager?.skipToNext() }
+                override fun onSkipPrevious() { musicManager?.skipToPrevious() }
+            })
         }
+
         overlayManager?.show()
         _isRunning.value = true
 
-        // Observe customization adjustments and update the floating island in real time
+        // Observe preference changes (size/position sliders)
         configJob?.cancel()
         configJob = CoroutineScope(Dispatchers.Main).launch {
             IslandPreferences.configFlow.collect { config ->
                 overlayManager?.updateConfiguration(config)
             }
         }
+
+        // Start music manager and observe its state
+        startMusicManager()
+    }
+
+    private fun startMusicManager() {
+        val musicMgr = MusicStateManager(this)
+        musicManager = musicMgr
+        musicMgr.start()
+
+        musicJob?.cancel()
+        musicJob = CoroutineScope(Dispatchers.Main).launch {
+            musicMgr.musicState.collect { musicState ->
+                overlayManager?.updateMusicState(musicState)
+            }
+        }
     }
 
     private fun stopOverlay() {
-        configJob?.cancel()
-        configJob = null
+        configJob?.cancel(); configJob = null
+        musicJob?.cancel();  musicJob = null
+
+        musicManager?.release()
+        musicManager = null
+
         overlayManager?.hide()
         overlayManager = null
         _isRunning.value = false
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            stopForeground(STOP_FOREGROUND_REMOVE)
-        } else {
-            @Suppress("DEPRECATION")
-            stopForeground(true)
-        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) stopForeground(STOP_FOREGROUND_REMOVE)
+        else @Suppress("DEPRECATION") stopForeground(true)
         stopSelf()
     }
 
+    // ─── Notification ────────────────────────────────────────────────────────────
+
     private fun startForegroundWithNotification() {
         val notification = buildNotification()
-
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            startForeground(
-                NOTIFICATION_ID,
-                notification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
-            )
+            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
         } else {
             startForeground(NOTIFICATION_ID, notification)
         }
@@ -164,14 +171,13 @@ class IslandOverlayService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                getString(R.string.island_service_channel_name),
+                getString(com.pulseisland.app.R.string.island_service_channel_name),
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = getString(R.string.island_service_channel_desc)
+                description = getString(com.pulseisland.app.R.string.island_service_channel_desc)
                 setShowBadge(false)
             }
-            val manager = getSystemService(NotificationManager::class.java)
-            manager?.createNotificationChannel(channel)
+            getSystemService(NotificationManager::class.java)?.createNotificationChannel(channel)
         }
     }
 
@@ -179,34 +185,21 @@ class IslandOverlayService : Service() {
         val contentIntent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
-        val contentPendingIntent = PendingIntent.getActivity(
-            this,
-            0,
-            contentIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
+        val contentPi = PendingIntent.getActivity(this, 0, contentIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
 
-        val stopIntent = Intent(this, IslandOverlayService::class.java).apply {
-            action = ACTION_STOP
-        }
-        val stopPendingIntent = PendingIntent.getService(
-            this,
-            1,
-            stopIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
+        val stopIntent = Intent(this, IslandOverlayService::class.java).apply { action = ACTION_STOP }
+        val stopPi = PendingIntent.getService(this, 1, stopIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle(getString(R.string.island_notification_title))
-            .setContentText(getString(R.string.island_notification_text))
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setContentTitle(getString(com.pulseisland.app.R.string.island_notification_title))
+            .setContentText(getString(com.pulseisland.app.R.string.island_notification_text))
+            .setSmallIcon(com.pulseisland.app.R.drawable.ic_launcher_foreground)
             .setOngoing(true)
-            .setContentIntent(contentPendingIntent)
-            .addAction(
-                R.drawable.ic_close,
-                getString(R.string.action_stop),
-                stopPendingIntent
-            )
+            .setContentIntent(contentPi)
+            .addAction(com.pulseisland.app.R.drawable.ic_close,
+                getString(com.pulseisland.app.R.string.action_stop), stopPi)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .build()
@@ -214,10 +207,9 @@ class IslandOverlayService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
-        configJob?.cancel()
-        configJob = null
-        overlayManager?.hide()
-        overlayManager = null
+        configJob?.cancel(); musicJob?.cancel()
+        musicManager?.release(); musicManager = null
+        overlayManager?.hide(); overlayManager = null
         _isRunning.value = false
         activeInstance = null
     }
