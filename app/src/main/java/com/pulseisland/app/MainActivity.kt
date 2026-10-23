@@ -36,6 +36,7 @@ class MainActivity : ComponentActivity() {
                 MainScreen(
                     hasOverlayPermission = hasOverlayPermission,
                     hasNotificationListenerPermission = hasNotificationListenerPermission,
+                    isMusicSupported = PermissionUtils.isNotificationListenerDeclared(this@MainActivity),
                     isIslandRunning = isIslandRunning,
                     islandConfig = islandConfig,
                     onOpenPermissionSettings = {

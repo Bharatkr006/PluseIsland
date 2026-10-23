@@ -37,11 +37,18 @@ jobs:
         if: always()
         run: find app/build/outputs -name "*.apk" 2>/dev/null || echo "No APK found"
 
-      - name: Upload Debug APK Artifact
+      - name: Upload Minimal Debug APK (Safe from sensitive data warning)
         uses: actions/upload-artifact@v4
         with:
-          name: PulseIsland-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          name: PulseIsland-minimal-debug-apk
+          path: app/build/outputs/apk/minimal/debug/*.apk
+          if-no-files-found: error
+
+      - name: Upload Full Debug APK (Includes music integration)
+        uses: actions/upload-artifact@v4
+        with:
+          name: PulseIsland-full-debug-apk
+          path: app/build/outputs/apk/full/debug/*.apk
           if-no-files-found: error
 
       - name: Upload Build Reports on Failure

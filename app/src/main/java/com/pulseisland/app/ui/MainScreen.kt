@@ -74,6 +74,7 @@ import kotlinx.coroutines.launch
 fun MainScreen(
     hasOverlayPermission: Boolean,
     hasNotificationListenerPermission: Boolean,
+    isMusicSupported: Boolean,
     isIslandRunning: Boolean,
     islandConfig: IslandPreferences.IslandConfig,
     onOpenPermissionSettings: () -> Unit,
@@ -119,6 +120,7 @@ fun MainScreen(
 
             // Music / Notification Listener Permission Card
             MusicPermissionCard(
+                isSupported = isMusicSupported,
                 hasPermission = hasNotificationListenerPermission,
                 onOpenSettings = onOpenNotificationListenerSettings
             )
@@ -414,14 +416,10 @@ private fun PermissionStatusCard(
 
 @Composable
 private fun MusicPermissionCard(
+    isSupported: Boolean,
     hasPermission: Boolean,
     onOpenSettings: () -> Unit
 ) {
-    val statusColor by animateColorAsState(
-        targetValue = if (hasPermission) EmeraldGreen else WarningAmber,
-        label = "musicStatusColor"
-    )
-
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
@@ -445,43 +443,72 @@ private fun MusicPermissionCard(
                     color = TextPrimary
                 )
 
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = statusColor.copy(alpha = 0.15f),
-                    border = BorderStroke(1.dp, statusColor.copy(alpha = 0.4f))
-                ) {
-                    Text(
-                        text = if (hasPermission) "Active" else "Optional",
-                        color = statusColor,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                if (isSupported) {
+                    val statusColor by animateColorAsState(
+                        targetValue = if (hasPermission) EmeraldGreen else WarningAmber,
+                        label = "musicStatusColor"
                     )
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = statusColor.copy(alpha = 0.15f),
+                        border = BorderStroke(1.dp, statusColor.copy(alpha = 0.4f))
+                    ) {
+                        Text(
+                            text = if (hasPermission) "Active" else "Optional",
+                            color = statusColor,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                        )
+                    }
+                } else {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = ElectricCyan.copy(alpha = 0.15f),
+                        border = BorderStroke(1.dp, ElectricCyan.copy(alpha = 0.4f))
+                    ) {
+                        Text(
+                            text = "Minimal Variant",
+                            color = ElectricCyan,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                        )
+                    }
                 }
             }
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            Text(
-                text = "Grant Notification Access so PulseIsland can detect playing media (Spotify, YouTube Music, etc.) and display Apple-style live waveforms and playback controls.",
-                fontSize = 13.sp,
-                color = TextSecondary,
-                lineHeight = 18.sp
-            )
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            OutlinedButton(
-                onClick = onOpenSettings,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                border = BorderStroke(1.dp, NeonPurple.copy(alpha = 0.6f)),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = NeonPurple)
-            ) {
+            if (isSupported) {
                 Text(
-                    text = if (hasPermission) "Manage Notification Access" else "Enable Music Controls",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold
+                    text = "Grant Notification Access so PulseIsland can detect playing media (Spotify, YouTube Music, etc.) and display Apple-style live waveforms and playback controls.",
+                    fontSize = 13.sp,
+                    color = TextSecondary,
+                    lineHeight = 18.sp
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                OutlinedButton(
+                    onClick = onOpenSettings,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, NeonPurple.copy(alpha = 0.6f)),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = NeonPurple)
+                ) {
+                    Text(
+                        text = if (hasPermission) "Manage Notification Access" else "Enable Music Controls",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            } else {
+                Text(
+                    text = "This minimal build is optimized for security and contains zero sensitive data permissions (no NotificationListenerService). To enable music detection and controls, install the Full build variant.",
+                    fontSize = 13.sp,
+                    color = TextSecondary,
+                    lineHeight = 18.sp
                 )
             }
         }

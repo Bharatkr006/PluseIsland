@@ -21,6 +21,18 @@ android {
         }
     }
 
+    flavorDimensions += "mode"
+    productFlavors {
+        create("minimal") {
+            dimension = "mode"
+            versionNameSuffix = "-minimal"
+        }
+        create("full") {
+            dimension = "mode"
+            versionNameSuffix = "-full"
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false

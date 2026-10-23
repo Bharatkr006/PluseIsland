@@ -128,6 +128,10 @@ class IslandOverlayService : Service() {
     }
 
     private fun startMusicManager() {
+        if (!PermissionUtils.isNotificationListenerDeclared(this)) {
+            // In minimal build variant, notification listener is omitted to avoid Play Protect sensitive data block
+            return
+        }
         val musicMgr = MusicStateManager(this)
         musicManager = musicMgr
         musicMgr.start()

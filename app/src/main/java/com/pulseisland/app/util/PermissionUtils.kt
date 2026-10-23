@@ -70,10 +70,29 @@ object PermissionUtils {
     }
 
     /**
+     * Returns true if PulseIslandNotificationListener is registered in this build's manifest.
+     * Returns false in the 'minimal' build variant where notification listener is omitted.
+     */
+    fun isNotificationListenerDeclared(context: Context): Boolean {
+        return try {
+            val component = android.content.ComponentName(
+                context,
+                "com.pulseisland.app.music.PulseIslandNotificationListener"
+            )
+            context.packageManager.getServiceInfo(component, 0)
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    /**
      * Checks whether the user has enabled PulseIsland as a Notification Listener.
      * This is required to access MediaSessionManager for music controls.
+     * Returns false immediately if not declared in the current build variant.
      */
     fun hasNotificationListenerPermission(context: Context): Boolean {
+        if (!isNotificationListenerDeclared(context)) return false
         return try {
             val enabledListeners = Settings.Secure.getString(
                 context.contentResolver,

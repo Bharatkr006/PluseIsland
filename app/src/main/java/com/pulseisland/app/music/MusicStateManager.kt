@@ -43,16 +43,7 @@ class MusicStateManager(private val context: Context) {
      * This is required on all API levels to use MediaSessionManager.
      */
     fun hasNotificationListenerPermission(): Boolean {
-        return try {
-            // Check if our NotificationListenerService is enabled
-            val enabledListeners = android.provider.Settings.Secure.getString(
-                context.contentResolver,
-                "enabled_notification_listeners"
-            ) ?: return false
-            enabledListeners.contains(context.packageName)
-        } catch (e: Exception) {
-            false
-        }
+        return com.pulseisland.app.util.PermissionUtils.hasNotificationListenerPermission(context)
     }
 
     /**
