@@ -49,6 +49,7 @@ class IslandOverlayManager(
     private var collapsedLayout: LinearLayout? = null
     private var expandedLayout: LinearLayout? = null
     private var pillBackground: GradientDrawable? = null
+    private var windowParams: WindowManager.LayoutParams? = null
 
     val isShowing: Boolean
         get() = overlayView != null
@@ -61,6 +62,8 @@ class IslandOverlayManager(
         if (isShowing) return
 
         val params = createLayoutParams()
+        windowParams = params
+
         val root = FrameLayout(context).apply {
             clipChildren = false
             clipToPadding = false
@@ -83,12 +86,17 @@ class IslandOverlayManager(
         collapsed.visibility = View.VISIBLE
         expanded.visibility = View.GONE
 
-        root.addView(collapsed)
-        root.addView(expanded)
+        val childParams = FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.WRAP_CONTENT,
+            FrameLayout.LayoutParams.WRAP_CONTENT,
+            Gravity.CENTER
+        )
+        root.addView(collapsed, childParams)
+        root.addView(expanded, childParams)
 
         // Set tap handlers for expansion & collapse
         root.setOnClickListener {
-            toggleState(params)
+            toggleState()
         }
 
         try {
@@ -104,12 +112,27 @@ class IslandOverlayManager(
     }
 
     /**
+     * Adapts overlay positioning on device rotation or cutout changes.
+     */
+    fun onConfigurationChanged() {
+        val root = overlayView ?: return
+        try {
+            val updatedParams = createLayoutParams()
+            windowParams = updatedParams
+            windowManager.updateViewLayout(root, updatedParams)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    /**
      * Toggles between COLLAPSED and EXPANDED states with a smooth transition.
      */
-    private fun toggleState(params: WindowManager.LayoutParams) {
+    private fun toggleState() {
         val root = overlayView ?: return
         val collapsed = collapsedLayout ?: return
         val expanded = expandedLayout ?: return
+        val params = windowParams ?: return
 
         val nextState = if (currentState == IslandState.COLLAPSED) {
             IslandState.EXPANDED
@@ -238,9 +261,8 @@ class IslandOverlayManager(
             val textContainer = LinearLayout(context).apply {
                 orientation = LinearLayout.VERTICAL
                 layoutParams = LinearLayout.LayoutParams(
-                    0,
                     ViewGroup.LayoutParams.WRAP_CONTENT,
-                    1f
+                    ViewGroup.LayoutParams.WRAP_CONTENT
                 )
 
                 val titleText = TextView(context).apply {
@@ -358,6 +380,7 @@ class IslandOverlayManager(
             collapsedLayout = null
             expandedLayout = null
             pillBackground = null
+            windowParams = null
             currentState = IslandState.COLLAPSED
         }
     }

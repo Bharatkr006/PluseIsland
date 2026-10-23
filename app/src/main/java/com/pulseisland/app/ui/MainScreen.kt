@@ -2,11 +2,13 @@ package com.pulseisland.app.ui
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -35,8 +37,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -171,6 +175,13 @@ private fun HeaderSection() {
 
 @Composable
 private fun IslandPreviewCard(isIslandRunning: Boolean) {
+    var isExpanded by remember { mutableStateOf(false) }
+
+    val cornerRadius by animateDpAsState(
+        targetValue = if (isExpanded) 20.dp else 22.dp,
+        label = "previewCornerRadius"
+    )
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
@@ -193,38 +204,84 @@ private fun IslandPreviewCard(isIslandRunning: Boolean) {
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Realistic Island Pill representation
+            // Realistic Island Pill representation with interactive expand/collapse
             Box(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(22.dp))
+                    .clip(RoundedCornerShape(cornerRadius))
                     .background(Color.Black)
-                    .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)), RoundedCornerShape(22.dp))
-                    .padding(horizontal = 22.dp, vertical = 10.dp)
+                    .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)), RoundedCornerShape(cornerRadius))
+                    .clickable { isExpanded = !isExpanded }
+                    .padding(horizontal = if (isExpanded) 18.dp else 20.dp, vertical = if (isExpanded) 12.dp else 9.dp)
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(10.dp)
-                            .clip(CircleShape)
-                            .background(if (isIslandRunning) EmeraldGreen else Color.Gray)
-                    )
+                if (!isExpanded) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(9.dp)
+                                .clip(CircleShape)
+                                .background(if (isIslandRunning) EmeraldGreen else Color.Gray)
+                        )
 
-                    Text(
-                        text = "PulseIsland",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color.White
-                    )
+                        Text(
+                            text = "Pulse",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color.White
+                        )
 
-                    Box(
-                        modifier = Modifier
-                            .size(6.dp)
-                            .clip(CircleShape)
-                            .background(ElectricCyan)
-                    )
+                        Box(
+                            modifier = Modifier
+                                .size(6.dp)
+                                .clip(CircleShape)
+                                .background(ElectricCyan)
+                        )
+                    }
+                } else {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(10.dp)
+                                .clip(CircleShape)
+                                .background(EmeraldGreen)
+                        )
+
+                        Column {
+                            Text(
+                                text = "PulseIsland",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                            Text(
+                                text = "Active • Tap pill to collapse",
+                                fontSize = 11.sp,
+                                color = TextSecondary
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(6.dp))
+
+                        Box(
+                            modifier = Modifier
+                                .size(24.dp)
+                                .clip(CircleShape)
+                                .background(Color.White.copy(alpha = 0.15f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_close),
+                                contentDescription = "Close",
+                                tint = Color.White,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
+                    }
                 }
             }
 
@@ -232,9 +289,9 @@ private fun IslandPreviewCard(isIslandRunning: Boolean) {
 
             Text(
                 text = if (isIslandRunning) {
-                    "Pill is currently floating on screen! Tap it to expand/collapse."
+                    "Pill is currently floating on screen! (Tap preview above to test animation)"
                 } else {
-                    "Pill floats top-center when started. Tap to expand into a panel."
+                    "Pill floats top-center when started. (Tap preview above to test animation)"
                 },
                 fontSize = 12.sp,
                 color = TextSecondary,

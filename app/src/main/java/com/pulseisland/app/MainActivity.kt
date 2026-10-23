@@ -22,6 +22,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        hasOverlayPermission = PermissionUtils.hasOverlayPermission(this)
 
         setContent {
             PulseIslandTheme {
@@ -48,5 +49,10 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         // Refresh permission status when returning from Android System Settings
         hasOverlayPermission = PermissionUtils.hasOverlayPermission(this)
+
+        // If permission was revoked while the island was active, dismiss the overlay cleanly
+        if (!hasOverlayPermission && IslandOverlayService.isRunning.value) {
+            IslandOverlayService.stopService(this)
+        }
     }
 }

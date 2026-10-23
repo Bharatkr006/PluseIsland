@@ -37,6 +37,9 @@ class IslandOverlayService : Service() {
         private val _isRunning = MutableStateFlow(false)
         val isRunning: StateFlow<Boolean> = _isRunning.asStateFlow()
 
+        @Volatile
+        private var activeInstance: IslandOverlayService? = null
+
         fun startService(context: Context) {
             val intent = Intent(context, IslandOverlayService::class.java).apply {
                 action = ACTION_START
@@ -49,10 +52,19 @@ class IslandOverlayService : Service() {
         }
 
         fun stopService(context: Context) {
-            val intent = Intent(context, IslandOverlayService::class.java).apply {
-                action = ACTION_STOP
+            val instance = activeInstance
+            if (instance != null) {
+                instance.stopOverlay()
+            } else {
+                try {
+                    val intent = Intent(context, IslandOverlayService::class.java).apply {
+                        action = ACTION_STOP
+                    }
+                    context.startService(intent)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
             }
-            context.startService(intent)
         }
     }
 
@@ -62,27 +74,34 @@ class IslandOverlayService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        activeInstance = this
         createNotificationChannel()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val action = intent?.action ?: ACTION_START
 
+        // Always satisfy Android 8+ foreground service requirement immediately
+        startForegroundWithNotification()
+
         if (action == ACTION_STOP) {
             stopOverlay()
             return START_NOT_STICKY
         }
 
-        // Verify overlay permission before starting
+        // Verify overlay permission before attaching window
         if (!PermissionUtils.hasOverlayPermission(this)) {
             stopOverlay()
             return START_NOT_STICKY
         }
 
-        startForegroundWithNotification()
         showOverlay()
-
         return START_NOT_STICKY
+    }
+
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        overlayManager?.onConfigurationChanged()
     }
 
     private fun showOverlay() {
@@ -120,12 +139,6 @@ class IslandOverlayService : Service() {
                 NOTIFICATION_ID,
                 notification,
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
-            )
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(
-                NOTIFICATION_ID,
-                notification,
-                0
             )
         } else {
             startForeground(NOTIFICATION_ID, notification)
@@ -189,5 +202,6 @@ class IslandOverlayService : Service() {
         overlayManager?.hide()
         overlayManager = null
         _isRunning.value = false
+        activeInstance = null
     }
 }
