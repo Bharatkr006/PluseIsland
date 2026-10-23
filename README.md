@@ -17,10 +17,16 @@ Designed from the ground up for **extreme battery efficiency**, PulseIsland prov
 * **Non-Blocking Touch Architecture:**
   * Uses `WRAP_CONTENT` window bounds so touches outside the pill pass through to whatever app is running underneath.
   * Safe top positioning accounting for status bar height and front camera cutouts (`LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES`).
+* **Fully Customizable Size & Fixed Position:**
+  * **Vertical Offset Slider (0–90 dp)**: Align the pill precisely around or below any camera cutout or teardrop notch.
+  * **Horizontal Offset Slider (-120 to +120 dp)**: Accommodate corner/left-aligned hole-punch cameras or centered setups.
+  * **Size Scale Slider (80%–130%)**: Resize the pill between ultra-compact and large high-visibility modes.
+  * **Drag-and-Drop Repositioning**: Touch and drag the floating island anywhere on screen with your finger.
+  * **Fixed Persistence**: Once customized, position and size are permanently stored in `SharedPreferences` and remain fixed across app launches and reboots until changed.
 * **Modern Jetpack Compose Setup App:**
   * Minimalist dark theme (`#0A0B0E`) with vibrant cyan and emerald accents.
+  * Interactive in-app live preview reflecting exact scale and expand/collapse animations.
   * Real-time reactive permission status ("Granted" / "Required").
-  * Direct one-tap shortcut to Android's official **"Display over other apps"** settings screen.
   * Dedicated **Start Island** and **Stop Island** controls with live service status indicators.
 * **Battery-Efficient Service Lifecycle:**
   * No background polling, recurring coroutines, or alarms.

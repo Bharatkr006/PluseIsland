@@ -12,12 +12,16 @@ import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.pulseisland.app.MainActivity
-import com.pulseisland.app.R
+import com.pulseisland.app.data.IslandPreferences
 import com.pulseisland.app.overlay.IslandOverlayManager
 import com.pulseisland.app.util.PermissionUtils
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 
 /**
  * Service managing the lifecycle of the floating Dynamic Island overlay.
@@ -69,6 +73,7 @@ class IslandOverlayService : Service() {
     }
 
     private var overlayManager: IslandOverlayManager? = null
+    private var configJob: Job? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -115,9 +120,19 @@ class IslandOverlayService : Service() {
         }
         overlayManager?.show()
         _isRunning.value = true
+
+        // Observe customization adjustments and update the floating island in real time
+        configJob?.cancel()
+        configJob = CoroutineScope(Dispatchers.Main).launch {
+            IslandPreferences.configFlow.collect { config ->
+                overlayManager?.updateConfiguration(config)
+            }
+        }
     }
 
     private fun stopOverlay() {
+        configJob?.cancel()
+        configJob = null
         overlayManager?.hide()
         overlayManager = null
         _isRunning.value = false
@@ -199,6 +214,8 @@ class IslandOverlayService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        configJob?.cancel()
+        configJob = null
         overlayManager?.hide()
         overlayManager = null
         _isRunning.value = false

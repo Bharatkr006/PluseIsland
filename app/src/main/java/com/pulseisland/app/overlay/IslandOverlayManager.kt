@@ -15,6 +15,7 @@ import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.view.animation.DecelerateInterpolator
@@ -24,6 +25,8 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.content.ContextCompat
 import com.pulseisland.app.R
+import com.pulseisland.app.data.IslandPreferences
+import kotlin.math.hypot
 
 /**
  * Manages the floating Dynamic Island overlay window using Android WindowManager.
@@ -50,6 +53,7 @@ class IslandOverlayManager(
     private var expandedLayout: LinearLayout? = null
     private var pillBackground: GradientDrawable? = null
     private var windowParams: WindowManager.LayoutParams? = null
+    private var closeButtonRef: View? = null
 
     val isShowing: Boolean
         get() = overlayView != null
@@ -68,6 +72,11 @@ class IslandOverlayManager(
             clipChildren = false
             clipToPadding = false
         }
+
+        // Apply saved scale customization
+        val currentScale = IslandPreferences.getScale(context)
+        root.scaleX = currentScale
+        root.scaleY = currentScale
 
         // Pill shape background with sleek dark styling and subtle border
         val initialRadius = dpToPx(18f)
@@ -94,9 +103,65 @@ class IslandOverlayManager(
         root.addView(collapsed, childParams)
         root.addView(expanded, childParams)
 
-        // Set tap handlers for expansion & collapse
-        root.setOnClickListener {
-            toggleState()
+        // Support both fluid drag-repositioning (fixed until changed) and quick-tap expand/collapse
+        val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
+        var initialX = 0
+        var initialY = 0
+        var initialTouchX = 0f
+        var initialTouchY = 0f
+        var isDragging = false
+
+        root.setOnTouchListener { _, event ->
+            val winParams = windowParams ?: return@setOnTouchListener false
+            val closeBtn = closeButtonRef
+            if (currentState == IslandState.EXPANDED && closeBtn != null && isPointInsideView(event.rawX, event.rawY, closeBtn)) {
+                return@setOnTouchListener false
+            }
+
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    initialX = winParams.x
+                    initialY = winParams.y
+                    initialTouchX = event.rawX
+                    initialTouchY = event.rawY
+                    isDragging = false
+                    true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val deltaX = event.rawX - initialTouchX
+                    val deltaY = event.rawY - initialTouchY
+                    if (!isDragging && hypot(deltaX.toDouble(), deltaY.toDouble()) > touchSlop) {
+                        isDragging = true
+                    }
+                    if (isDragging) {
+                        winParams.x = (initialX + deltaX).toInt()
+                        winParams.y = (initialY + deltaY).toInt().coerceAtLeast(0)
+                        try {
+                            windowManager.updateViewLayout(root, winParams)
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                    }
+                    true
+                }
+                MotionEvent.ACTION_UP -> {
+                    if (isDragging) {
+                        // Persist new user-customized position permanently
+                        val xDp = (winParams.x / density).toInt()
+                        val yDp = (winParams.y / density).toInt()
+                        IslandPreferences.setXOffsetDp(context, xDp)
+                        IslandPreferences.setYOffsetDp(context, yDp)
+                    } else {
+                        toggleState()
+                    }
+                    true
+                }
+                MotionEvent.ACTION_CANCEL -> {
+                    isDragging = false
+                    true
+                }
+                else -> false
+            }
         }
 
         try {
@@ -109,6 +174,31 @@ class IslandOverlayManager(
             e.printStackTrace()
             cleanup()
         }
+    }
+
+    /**
+     * Updates the size and position live on screen and persists until changed.
+     */
+    fun updateConfiguration(config: IslandPreferences.IslandConfig) {
+        val root = overlayView ?: return
+        val params = windowParams ?: return
+        params.x = dpToPx(config.xOffsetDp.toFloat()).toInt()
+        params.y = dpToPx(config.yOffsetDp.toFloat()).toInt()
+        root.scaleX = config.scale
+        root.scaleY = config.scale
+        try {
+            windowManager.updateViewLayout(root, params)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun isPointInsideView(rawX: Float, rawY: Float, view: View): Boolean {
+        val location = IntArray(2)
+        view.getLocationOnScreen(location)
+        val x = location[0]
+        val y = location[1]
+        return rawX >= x && rawX <= (x + view.width) && rawY >= y && rawY <= (y + view.height)
     }
 
     /**
@@ -301,6 +391,7 @@ class IslandOverlayManager(
                     onCloseRequested()
                 }
             }
+            closeButtonRef = closeButton
 
             addView(indicator)
             addView(textContainer)
@@ -312,11 +403,11 @@ class IslandOverlayManager(
      * Creates window layout params ensuring:
      * 1. WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY is used
      * 2. WRAP_CONTENT dimensions so touches outside pass through to underlying apps
-     * 3. Positioned top-center, safely accounting for camera cutouts and status bar
+     * 3. Positioned with customized, fixed X and Y offsets
      */
     private fun createLayoutParams(): WindowManager.LayoutParams {
-        val statusBarHeight = getStatusBarHeight()
-        val topOffset = (statusBarHeight * 0.35f).toInt().coerceAtLeast(dpToPx(12f).toInt())
+        val savedX = dpToPx(IslandPreferences.getXOffsetDp(context).toFloat()).toInt()
+        val savedY = dpToPx(IslandPreferences.getYOffsetDp(context).toFloat()).toInt()
 
         return WindowManager.LayoutParams().apply {
             width = WindowManager.LayoutParams.WRAP_CONTENT
@@ -330,8 +421,8 @@ class IslandOverlayManager(
 
             format = PixelFormat.TRANSLUCENT
             gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-            x = 0
-            y = topOffset
+            x = savedX
+            y = savedY
 
             // Support display cutouts on Android 9+ (API 28+)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
@@ -381,6 +472,7 @@ class IslandOverlayManager(
             expandedLayout = null
             pillBackground = null
             windowParams = null
+            closeButtonRef = null
             currentState = IslandState.COLLAPSED
         }
     }

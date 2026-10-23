@@ -7,6 +7,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.pulseisland.app.data.IslandPreferences
 import com.pulseisland.app.service.IslandOverlayService
 import com.pulseisland.app.ui.MainScreen
 import com.pulseisland.app.ui.theme.PulseIslandTheme
@@ -22,15 +23,18 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        IslandPreferences.init(this)
         hasOverlayPermission = PermissionUtils.hasOverlayPermission(this)
 
         setContent {
             PulseIslandTheme {
                 val isIslandRunning by IslandOverlayService.isRunning.collectAsState()
+                val islandConfig by IslandPreferences.configFlow.collectAsState()
 
                 MainScreen(
                     hasOverlayPermission = hasOverlayPermission,
                     isIslandRunning = isIslandRunning,
+                    islandConfig = islandConfig,
                     onOpenPermissionSettings = {
                         PermissionUtils.openOverlaySettings(this)
                     },
@@ -39,6 +43,18 @@ class MainActivity : ComponentActivity() {
                     },
                     onStopIsland = {
                         IslandOverlayService.stopService(this)
+                    },
+                    onUpdateXOffset = { newX ->
+                        IslandPreferences.setXOffsetDp(this, newX)
+                    },
+                    onUpdateYOffset = { newY ->
+                        IslandPreferences.setYOffsetDp(this, newY)
+                    },
+                    onUpdateScale = { newScale ->
+                        IslandPreferences.setScale(this, newScale)
+                    },
+                    onResetDefaults = {
+                        IslandPreferences.resetToDefaults(this)
                     }
                 )
             }
