@@ -26,7 +26,6 @@ import android.widget.TextView
 import androidx.core.content.ContextCompat
 import com.pulseisland.app.R
 import com.pulseisland.app.data.IslandPreferences
-import kotlin.math.hypot
 
 /**
  * Manages the floating Dynamic Island overlay window using Android WindowManager.
@@ -130,7 +129,7 @@ class IslandOverlayManager(
                 MotionEvent.ACTION_MOVE -> {
                     val deltaX = event.rawX - initialTouchX
                     val deltaY = event.rawY - initialTouchY
-                    if (!isDragging && hypot(deltaX, deltaY) > touchSlop) {
+                    if (!isDragging && (deltaX * deltaX + deltaY * deltaY) > (touchSlop * touchSlop)) {
                         isDragging = true
                     }
                     if (isDragging) {
